@@ -1,5 +1,4 @@
-use crate::math::Num;
-
+use crate::math::{Num, Vector3};
 mod math;
 
 fn main() {
