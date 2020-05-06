@@ -147,6 +147,33 @@ impl Div<Num> for Vec3 {
     }
 }
 
+pub type Point = Vec3;
+
+pub type Color = Vec3;
+
+impl Color {
+    pub fn ppm_fmt(self) -> String {
+        format!(
+            "{} {} {}\n",
+            (255.999 * self.x) as i32,
+            (255.999 * self.y) as i32,
+            (255.999 * self.z) as i32
+        )
+    }
+}
+
+#[derive(Debug)]
+pub struct Ray {
+    pub origin: Point,
+    pub direction: Vec3,
+}
+
+impl Ray {
+    fn at(self, t: Num) -> Point {
+        self.origin + (self.direction * t)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -171,9 +198,6 @@ mod tests {
 
     #[test]
     fn test_cross() {
-        assert_eq!(
-            Vec3::unit_x().cross(Vec3::unit_y()),
-            Vec3::unit_z()
-        );
+        assert_eq!(Vec3::unit_x().cross(Vec3::unit_y()), Vec3::unit_z());
     }
 }

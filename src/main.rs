@@ -1,9 +1,9 @@
-use crate::math::{Num, Vec3};
+use crate::types::*;
 
-mod math;
+mod types;
 
 fn main() {
-    std::fs::write("hello_sky.ppm", hello_ray().as_bytes()).unwrap();
+    std::fs::write("hello_sphere.ppm", hello_ray().as_bytes()).unwrap();
 }
 
 fn hello_ray() -> String {
@@ -20,7 +20,7 @@ fn hello_ray() -> String {
     let lower_left_corner = origin - horizontal / 2.0 - vertical / 2.0 - Vec3::unit_z(); // FIXME: negeative-z
 
     for h in (0..(image_height - 1)).rev() {
-        print!("\rScanlines remaining: {}\n", h);
+        // print!("\rScanlines remaining: {}\n", h);
         for w in 0..image_width {
             let u = w as Num / (image_width - 1) as Num;
             let v = h as Num / (image_height - 1) as Num;
@@ -32,7 +32,7 @@ fn hello_ray() -> String {
                 direction: lower_left_corner + (horizontal * u) + (vertical * v),
             };
             let pixel = ray_color(r);
-            ppm.push_str(ppm_fmt(pixel).as_str());
+            ppm.push_str(pixel.ppm_fmt().as_str());
         }
     }
 
@@ -40,6 +40,9 @@ fn hello_ray() -> String {
     ppm
 }
 fn ray_color(ray: Ray) -> Color {
+    if hit_sphere(Point::new(0.0, 0.0, -1.0), 0.5, &ray) {
+        return Color::new(1.0, 0.0, 0.0);
+    }
     let unit_direction = ray.direction.unit_vector();
     let t = 0.5 * (unit_direction.y + 1.0);
 
@@ -47,27 +50,18 @@ fn ray_color(ray: Ray) -> Color {
     //^ white                     ^ blue
 }
 
-fn ppm_fmt(pixel: Color) -> String {
-    format!(
-        "{} {} {}\n",
-        (255.999 * pixel.x) as i32,
-        (255.999 * pixel.y) as i32,
-        (255.999 * pixel.z) as i32
-    )
-}
+fn hit_sphere(center: Point, radius: Num, ray: &Ray) -> bool {
+    // (t^2 * b^2) + (2tb * (A−C)) + ((A−C) * (A−C)) − r2 = 0
+    // A = origin
+    // b = direction
+    // t = step
+    // C = sphere center
 
-type Color = Vec3;
-
-type Point = Vec3;
-
-#[derive(Debug)]
-pub struct Ray {
-    pub origin: Point,
-    pub direction: Vec3,
-}
-
-impl Ray {
-    fn at(self, t: Num) -> Point {
-        self.origin + (self.direction * t)
-    }
+    // use quadratic equation to solve
+    let o_to_c = ray.origin - center;
+    let a = ray.direction.dot(ray.direction);
+    let b = 2.0 * o_to_c.dot(ray.direction);
+    let c = o_to_c.dot(o_to_c) - radius * radius;
+    let discriminant = (b * b) - (4.0 * a * c);
+    (discriminant > 0.0)
 }
