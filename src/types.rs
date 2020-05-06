@@ -18,8 +18,12 @@ impl Vec3 {
         z: EPSILON,
     };
 
-    pub fn new(x: Num, y: Num, z: Num) -> Vec3 {
-        Vec3 { x, y, z }
+    pub fn new<T: Into<Num>>(x: T, y: T, z: T) -> Vec3 {
+        Vec3 {
+            x: x.into(),
+            y: y.into(),
+            z: z.into(),
+        }
     }
 
     pub fn zero() -> Vec3 {
@@ -169,13 +173,13 @@ pub struct Ray {
 }
 
 impl Ray {
-    fn at(self, t: Num) -> Point {
+    pub fn at(self, t: Num) -> Point {
         self.origin + (self.direction * t)
     }
 }
 
 #[cfg(test)]
-mod tests {
+mod test_vector3 {
     use super::*;
 
     #[test]
@@ -192,6 +196,12 @@ mod tests {
     }
 
     #[test]
+    fn test_mul_div() {
+        assert_eq!(Vec3::new(1, 2, 3) * Vec3::new(3, 2, 1), Vec3::new(3, 4, 3));
+        assert_eq!(Vec3::one() / 4.0, Vec3::new(0.25, 0.25, 0.25));
+    }
+
+    #[test]
     fn test_dot() {
         assert_eq!(Vec3::unit_x().dot(Vec3::unit_y()), 0.0);
     }
@@ -199,5 +209,19 @@ mod tests {
     #[test]
     fn test_cross() {
         assert_eq!(Vec3::unit_x().cross(Vec3::unit_y()), Vec3::unit_z());
+    }
+}
+
+#[cfg(test)]
+mod test_ray {
+    use super::*;
+
+    #[test]
+    fn test_at() {
+        let ray = Ray {
+            origin: Vec3::zero(),
+            direction: Vec3::one(),
+        };
+        assert_eq!(ray.at(5.0), Vec3::new(5, 5, 5));
     }
 }
