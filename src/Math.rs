@@ -5,9 +5,9 @@ pub type Num = f64;
 
 #[derive(PartialEq, Debug, Clone, Copy)]
 pub struct Vector3 {
-    x: Num,
-    y: Num,
-    z: Num,
+    pub x: Num,
+    pub y: Num,
+    pub z: Num,
 }
 
 #[allow(dead_code)]
@@ -170,7 +170,10 @@ mod tests {
     }
 
     #[test]
-    fn test_cross(){
-        assert_eq!(Vector3::unit_x().cross(Vector3::unit_y()), Vector3::unit_z());
+    fn test_cross() {
+        assert_eq!(
+            Vector3::unit_x().cross(Vector3::unit_y()),
+            Vector3::unit_z()
+        );
     }
 }
