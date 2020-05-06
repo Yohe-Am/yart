@@ -1,7 +1,90 @@
 use core::ops::{Add, Div, Mul, Sub};
 use std::f64::EPSILON;
 
-pub type Num = f64;
+pub struct Sphere {
+    pub center: Point,
+    pub radius: Num,
+}
+
+impl Hit for Sphere {
+    fn hit(&self, ray: &Ray, t_min: Num, t_max: Num) -> Option<HitRecord> {
+        // (t^2 * b^2) + (2tb * (A−C)) + ((A−C) * (A−C)) − r^2 = 0
+        // A = origin
+        // b = direction
+        // t = step
+        // C = sphere center
+
+        // use quadratic equation to solve
+        // +- b * sqrt(b^2 * 4*a*c) / 2 * a
+
+        // a = b^2  --  b dot b = |b|^2
+        let a = ray.direction.magnitude_squared();
+
+        let o_to_c = ray.origin - self.center; // (A - C)
+
+        // b = 2b * (A - C) -- remove the 2
+        let half_b = ray.direction.dot(o_to_c);
+
+        // c = (A-C)^2 - r^2 -- again v dot b = |v|^2
+        let c = o_to_c.magnitude_squared() - self.radius * self.radius;
+
+        // b^2 * 4*a*c = (2*half_b)^2 - 4ac = 4halfb^2 - 4ac
+        // = halfb^2 -ac (take common 4 out of root)
+        let discriminant = (half_b * half_b) - (a * c);
+        if discriminant > 0.0 {
+            // hit sphere
+            let sol = (-half_b - Num::sqrt(discriminant)) / a;
+            if sol < t_max && sol > t_min {
+                let position = ray.at(sol);
+                let record = HitRecord {
+                    position,
+                    normal: (position - self.center) / self.radius, // unit vector
+                    t: sol,
+                };
+                return Some(record);
+            }
+        }
+        // didn't hit sphere
+        None
+    }
+}
+
+pub trait Hit {
+    fn hit(&self, ray: &Ray, t_min: Num, t_max: Num) -> Option<HitRecord>;
+}
+
+pub struct HitRecord {
+    pub position: Point,
+    pub normal: Vec3,
+    pub t: Num,
+}
+
+#[derive(Debug)]
+pub struct Ray {
+    pub origin: Point,
+    pub direction: Vec3,
+}
+
+impl Ray {
+    pub fn at(&self, t: Num) -> Point {
+        self.origin + (self.direction * t)
+    }
+}
+
+pub type Point = Vec3;
+
+pub type Color = Vec3;
+
+impl Color {
+    pub fn ppm_fmt(self) -> String {
+        format!(
+            "{} {} {}\n",
+            (255.999 * self.x) as i32,
+            (255.999 * self.y) as i32,
+            (255.999 * self.z) as i32
+        )
+    }
+}
 
 #[derive(PartialEq, Debug, Clone, Copy)]
 pub struct Vec3 {
@@ -151,30 +234,19 @@ impl Div<Num> for Vec3 {
     }
 }
 
-pub type Point = Vec3;
+pub type Num = f64;
 
-pub type Color = Vec3;
+#[cfg(test)]
+mod test_ray {
+    use super::*;
 
-impl Color {
-    pub fn ppm_fmt(self) -> String {
-        format!(
-            "{} {} {}\n",
-            (255.999 * self.x) as i32,
-            (255.999 * self.y) as i32,
-            (255.999 * self.z) as i32
-        )
-    }
-}
-
-#[derive(Debug)]
-pub struct Ray {
-    pub origin: Point,
-    pub direction: Vec3,
-}
-
-impl Ray {
-    pub fn at(self, t: Num) -> Point {
-        self.origin + (self.direction * t)
+    #[test]
+    fn test_at() {
+        let ray = Ray {
+            origin: Vec3::zero(),
+            direction: Vec3::one(),
+        };
+        assert_eq!(ray.at(5.0), Vec3::new(5, 5, 5));
     }
 }
 
@@ -209,19 +281,5 @@ mod test_vector3 {
     #[test]
     fn test_cross() {
         assert_eq!(Vec3::unit_x().cross(Vec3::unit_y()), Vec3::unit_z());
-    }
-}
-
-#[cfg(test)]
-mod test_ray {
-    use super::*;
-
-    #[test]
-    fn test_at() {
-        let ray = Ray {
-            origin: Vec3::zero(),
-            direction: Vec3::one(),
-        };
-        assert_eq!(ray.at(5.0), Vec3::new(5, 5, 5));
     }
 }
