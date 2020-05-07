@@ -148,6 +148,10 @@ pub struct Camera {
     pub lower_left_corner: Point,
     pub horizontal: Vec3,
     pub vertical: Vec3,
+    u: Vec3,
+    v: Vec3,
+    w: Vec3,
+    lens_radius: Num,
     // use_ctor_please: (),
 }
 
@@ -158,6 +162,8 @@ impl Camera {
         vup: Vec3,
         aspect_ratio: Num,
         vertical_fov: Num,
+        aperture: Num,
+        focus_dist: Num,
     ) -> Camera {
         let theta = degrees_to_radians(vertical_fov);
         let half_height = Num::tan(theta / 2.0);
@@ -167,26 +173,46 @@ impl Camera {
         let u = vup.cross(w).unit_vector();
         let v = w.cross(u);
 
-        let lower_left_corner = lookfrom - (u * half_width) - (v * half_height) - w;
+        let lower_left_corner = lookfrom
+            - (u * (focus_dist * half_width))
+            - (v * (focus_dist * half_height))
+            - (w * focus_dist);
 
-        let horizontal = u * half_width * 2.0;
-        let vertical = v * half_height * 2.0;
+        let horizontal = u * focus_dist * half_width * 2.0;
+        let vertical = v * focus_dist * half_height * 2.0;
+
+        let lens_radius = aperture / 2.0;
         Camera {
             origin: lookfrom,
             horizontal,
             vertical,
             lower_left_corner,
+            u,
+            v,
+            w,
+            lens_radius,
         }
     }
     pub fn get_ray(&self, u: Num, v: Num) -> Ray {
+        let rd = random_in_unit_disk() * self.lens_radius;
+        let offset = self.u * rd.x + self.v * rd.y;
         Ray {
-            origin: self.origin,
+            origin: self.origin + offset,
             direction: (self.lower_left_corner + (self.horizontal * u) + (self.vertical * v))
-                - self.origin,
+                - self.origin
+                - offset,
         }
     }
 }
-
+fn random_in_unit_disk() -> Vec3 {
+    let mut gen = random_num_generator_rng();
+    loop {
+        let p = Vec3::new(gen(-1.0, 1.0), gen(-1.0, 1.0), 0);
+        if p.magnitude_squared() < 1.0 {
+            return p;
+        }
+    }
+}
 pub struct Sphere {
     pub center: Point,
     pub radius: Num,

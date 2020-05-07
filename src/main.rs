@@ -42,7 +42,7 @@ fn main() {
         }),
     }));
     std::fs::write(
-        "15-hello_lookat.ppm",
+        "17-hello_dof.ppm",
         draw(&(Box::new(world) as Box<dyn Hit>)).as_bytes(),
     )
     .unwrap();
@@ -57,13 +57,20 @@ fn draw(object: &Box<dyn Hit>) -> String {
     let mut ppm = String::with_capacity(image_width * image_height * 12 + 20);
     ppm.push_str(format!("P3\n{} {}\n255\n", image_width, image_height).as_str());
 
+    let look_from = Point::new(3, 3, 2);
+    let look_at = Point::new(0, 0, -1);
+    let vup = Vec3::unit_y();
+    let dist_to_focus = (look_from - look_at).magnitude();
+    let aperture = 2.0;
     let aspect_ratio = image_width as Num / image_height as Num;
     let camera = Camera::new(
-        Point::new(-2, 2, 1),
-        Point::new(0, 0, -1),
-        Vec3::unit_y(),
+        look_from,
+        look_at,
+        vup,
         aspect_ratio,
         20.0,
+        aperture,
+        dist_to_focus,
     );
 
     let mut gen = random_num_generator();
