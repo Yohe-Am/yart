@@ -5,8 +5,49 @@ use std::rc::Rc;
 
 pub mod materials {
     use super::*;
+
     pub trait Material {
         fn scatter(&self, ray_in: Ray, record: HitRecord) -> Option<(Ray, Color)>;
+    }
+
+    pub struct Dielectric {
+        pub refraction_index: Num,
+    }
+
+    impl Material for Dielectric {
+        fn scatter(&self, r_in: Ray, record: HitRecord) -> Option<(Ray, Color)> {
+            let etai_over_etat = if record.front_face {
+                1.0 / self.refraction_index
+            } else {
+                self.refraction_index
+            };
+
+            let unit_direction = r_in.direction.unit_vector();
+
+            let cos_theta = Num::min(-unit_direction.dot(record.normal), 1.0);
+            let sin_theta = Num::sqrt(1.0 - cos_theta * cos_theta);
+
+            let next_direction = if etai_over_etat * sin_theta > 1.0 {
+                reflect(unit_direction, record.normal)
+            } else {
+                refract(unit_direction, record.normal, etai_over_etat)
+            };
+
+            Some((
+                Ray {
+                    origin: record.position,
+                    direction: next_direction,
+                },
+                Color::one(),
+            ))
+        }
+    }
+
+    fn refract(uv: Vec3, normal: Vec3, etai_over_etat: Num) -> Vec3 {
+        let cos_theta = -uv.dot(normal);
+        let r_out_parallel = (uv + normal * cos_theta) * etai_over_etat;
+        let r_out_perp = normal * -Num::sqrt(1.0 - r_out_parallel.magnitude_squared());
+        r_out_parallel + r_out_perp
     }
 
     pub struct Metal {
@@ -389,21 +430,21 @@ pub mod math {
                 }
             }
 
-            pub fn magnitude_squared(&self) -> Num {
+            pub fn magnitude_squared(self) -> Num {
                 (self.x * self.x) + (self.y * self.y) + (self.z * self.z)
             }
-            pub fn magnitude(&self) -> Num {
+            pub fn magnitude(self) -> Num {
                 Num::sqrt(self.magnitude_squared())
             }
 
-            pub fn unit_vector(&self) -> Vec3 {
-                *self / self.magnitude()
+            pub fn unit_vector(self) -> Vec3 {
+                self / self.magnitude()
             }
 
-            pub fn dot(&self, other: Vec3) -> Num {
+            pub fn dot(self, other: Vec3) -> Num {
                 (self.x * other.x) + (self.y * other.y) + (self.z * other.z)
             }
-            pub fn cross(&self, other: Vec3) -> Vec3 {
+            pub fn cross(self, other: Vec3) -> Vec3 {
                 Vec3 {
                     x: (self.y * other.z) - (self.z * other.y),
                     y: (self.z * other.x) - (self.x * other.z),
