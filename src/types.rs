@@ -1,4 +1,5 @@
 use crate::math::*;
+use rand::Rng;
 use std::rc::Rc;
 
 pub struct Camera {
@@ -172,6 +173,34 @@ impl Color {
             (255.999 * self.y) as i32,
             (255.999 * self.z) as i32
         )
+    }
+}
+
+pub fn random_num_generator() -> impl FnMut() -> Num {
+    let mut rng = rand::thread_rng();
+    move || rng.gen()
+}
+
+pub fn random_num_generator_rng(min: Num, max: Num) -> impl FnMut() -> Num {
+    let mut rng = rand::thread_rng();
+    move || rng.gen_range(min, max)
+}
+
+pub fn random_vec3_generator() -> impl FnMut() -> Vec3 {
+    let mut rng = rand::thread_rng();
+    move || Vec3 {
+        x: rng.gen(),
+        y: rng.gen(),
+        z: rng.gen(),
+    }
+}
+
+pub fn random_vec3_generator_rng(min: Num, max: Num) -> impl FnMut() -> Vec3 {
+    let mut rng = rand::thread_rng();
+    move || Vec3 {
+        x: rng.gen_range(min, max),
+        y: rng.gen_range(min, max),
+        z: rng.gen_range(min, max),
     }
 }
 

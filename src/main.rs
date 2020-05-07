@@ -1,6 +1,5 @@
 use crate::types::math::*;
 use crate::types::*;
-use rand::Rng;
 use std::rc::Rc;
 
 mod types;
@@ -17,7 +16,7 @@ fn main() {
     }));
     //rand::thread_rng().gen_range(1, 101);
     std::fs::write(
-        "hello_anti-aliasing.ppm",
+        "hello_matte.ppm",
         draw(&(Box::new(world) as Box<dyn Hit>)).as_bytes(),
     )
     .unwrap();
@@ -28,13 +27,14 @@ fn draw(object: &Box<dyn Hit>) -> String {
     let image_width = 384;
     let image_height = ((image_width as Num) / aspect_ratio) as i32;
     let samples_per_pixel = 100;
+    let max_depth = 50;
 
     let mut ppm = String::with_capacity(990_735);
     ppm.push_str(format!("P3\n{} {}\n255\n", image_width, image_height).as_str());
 
     let camera = Camera::standard();
 
-    let mut gen = get_random_num_generator();
+    let mut gen = random_num_generator();
 
     for h in (0..(image_height - 1)).rev() {
         print!("\rScanlines remaining: {}\n", h);
@@ -43,7 +43,7 @@ fn draw(object: &Box<dyn Hit>) -> String {
             for _ in 0..samples_per_pixel {
                 let u = ((w as Num) + gen()) / (image_width - 1) as Num;
                 let v = ((h as Num) + gen()) / (image_height - 1) as Num;
-                pixel = pixel + ray_color(object, camera.get_ray(u, v));
+                pixel = pixel + send_ray(object, camera.get_ray(u, v), max_depth);
             }
             write_color(&mut ppm, pixel, samples_per_pixel);
 
@@ -54,10 +54,14 @@ fn draw(object: &Box<dyn Hit>) -> String {
     println!("Done");
     ppm
 }
-
-fn get_random_num_generator() -> impl FnMut() -> Num {
-    let mut rng = rand::thread_rng();
-    move || rng.gen::<f64>()
+fn random_in_unit_sphere() -> Vec3 {
+    let mut gen = random_vec3_generator_rng(-1.0, 1.0);
+    loop {
+        let vec = gen();
+        if vec.magnitude_squared() < 1.0 {
+            return vec;
+        }
+    }
 }
 
 fn write_color(output: &mut String, pixel: Color, samples_per_pixel: i32) {
@@ -78,9 +82,22 @@ fn write_color(output: &mut String, pixel: Color, samples_per_pixel: i32) {
     );
 }
 
-fn ray_color(hittable: &Box<dyn Hit>, ray: Ray) -> Color {
+fn send_ray(hittable: &Box<dyn Hit>, ray: Ray, depth: i32) -> Color {
+    if depth <= 0 {
+        // no more light if at end of depth
+        return Color::zero();
+    }
     match hittable.hit(&ray, 0.0, INFINITY) {
-        Some(record) => (record.normal + Color::one()) * 0.5,
+        // if it hits the hittable, get color
+        Some(record) => {
+            let target = record.position + record.normal + random_in_unit_sphere();
+            let deflected_ray = Ray {
+                origin: record.position,
+                direction: target - record.position,
+            };
+            send_ray(hittable, deflected_ray, depth - 1) * 0.5
+        }
+        // else, the background gradient
         None => {
             let unit_direction = ray.direction.unit_vector();
             let t = 0.5 * (unit_direction.y + 1.0);
