@@ -1,5 +1,5 @@
+use crate::math::vec3::*;
 use crate::math::*;
-use rand::Rng;
 use std::rc::Rc;
 
 pub struct Camera {
@@ -176,38 +176,11 @@ impl Color {
     }
 }
 
-pub fn random_num_generator() -> impl FnMut() -> Num {
-    let mut rng = rand::thread_rng();
-    move || rng.gen()
-}
-
-pub fn random_num_generator_rng(min: Num, max: Num) -> impl FnMut() -> Num {
-    let mut rng = rand::thread_rng();
-    move || rng.gen_range(min, max)
-}
-
-pub fn random_vec3_generator() -> impl FnMut() -> Vec3 {
-    let mut rng = rand::thread_rng();
-    move || Vec3 {
-        x: rng.gen(),
-        y: rng.gen(),
-        z: rng.gen(),
-    }
-}
-
-pub fn random_vec3_generator_rng(min: Num, max: Num) -> impl FnMut() -> Vec3 {
-    let mut rng = rand::thread_rng();
-    move || Vec3 {
-        x: rng.gen_range(min, max),
-        y: rng.gen_range(min, max),
-        z: rng.gen_range(min, max),
-    }
-}
-
 /// Basic math types
 #[allow(dead_code)]
 pub mod math {
     use core::ops::{Add, Div, Mul, Neg, Sub};
+    use rand::Rng;
 
     pub type Num = f64;
 
@@ -230,167 +203,198 @@ pub mod math {
         degrees * PI / 180.0
     }
 
-    #[derive(PartialEq, Debug, Clone, Copy)]
-    pub struct Vec3 {
-        pub x: Num,
-        pub y: Num,
-        pub z: Num,
+    pub fn random_num_generator() -> impl FnMut() -> Num {
+        let mut rng = rand::thread_rng();
+        move || rng.gen()
     }
 
-    impl Vec3 {
-        pub const EPSILON_VEC3: Vec3 = Vec3 {
-            x: EPSILON,
-            y: EPSILON,
-            z: EPSILON,
-        };
-
-        pub fn new<T, U, V>(x: T, y: U, z: V) -> Vec3
-        where
-            T: Into<Num>,
-            U: Into<Num>,
-            V: Into<Num>,
-        {
-            Vec3 {
-                x: x.into(),
-                y: y.into(),
-                z: z.into(),
-            }
-        }
-
-        pub fn zero() -> Vec3 {
-            Vec3 {
-                x: 0.0,
-                y: 0.0,
-                z: 0.0,
-            }
-        }
-
-        pub fn one() -> Vec3 {
-            Vec3 {
-                x: 1.0,
-                y: 1.0,
-                z: 1.0,
-            }
-        }
-
-        pub fn unit_x() -> Vec3 {
-            Vec3 {
-                x: 1.0,
-                y: 0.0,
-                z: 0.0,
-            }
-        }
-
-        pub fn unit_y() -> Vec3 {
-            Vec3 {
-                x: 0.0,
-                y: 1.0,
-                z: 0.0,
-            }
-        }
-
-        pub fn unit_z() -> Vec3 {
-            Vec3 {
-                x: 0.0,
-                y: 0.0,
-                z: 1.0,
-            }
-        }
-
-        pub fn magnitude_squared(&self) -> Num {
-            (self.x * self.x) + (self.y * self.y) + (self.z * self.z)
-        }
-        pub fn magnitude(&self) -> Num {
-            Num::sqrt(self.magnitude_squared())
-        }
-
-        pub fn unit_vector(&self) -> Vec3 {
-            *self / self.magnitude()
-        }
-
-        pub fn dot(&self, other: Vec3) -> Num {
-            (self.x * other.x) + (self.y * other.y) + (self.z * other.z)
-        }
-        pub fn cross(&self, other: Vec3) -> Vec3 {
-            Vec3 {
-                x: (self.y * other.z) - (self.z * other.y),
-                y: (self.z * other.x) - (self.x * other.z),
-                z: (self.x * other.y) - (self.y * other.x),
-            }
-        }
+    pub fn random_num_generator_rng(min: Num, max: Num) -> impl FnMut() -> Num {
+        let mut rng = rand::thread_rng();
+        move || rng.gen_range(min, max)
     }
+    pub mod vec3 {
+        use super::*;
 
-    impl std::fmt::Display for Vec3 {
-        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-            write!(f, "{} {} {}", self.x, self.y, self.z)
+        #[derive(PartialEq, Debug, Clone, Copy)]
+        pub struct Vec3 {
+            pub x: Num,
+            pub y: Num,
+            pub z: Num,
         }
-    }
 
-    impl Add for Vec3 {
-        type Output = Self;
+        impl Vec3 {
+            pub const EPSILON_VEC3: Vec3 = Vec3 {
+                x: EPSILON,
+                y: EPSILON,
+                z: EPSILON,
+            };
 
-        fn add(self, other: Self) -> Self {
-            Vec3 {
-                x: self.x + other.x,
-                y: self.y + other.y,
-                z: self.z + other.z,
+            pub fn new<T, U, V>(x: T, y: U, z: V) -> Vec3
+            where
+                T: Into<Num>,
+                U: Into<Num>,
+                V: Into<Num>,
+            {
+                Vec3 {
+                    x: x.into(),
+                    y: y.into(),
+                    z: z.into(),
+                }
+            }
+
+            pub fn zero() -> Vec3 {
+                Vec3 {
+                    x: 0.0,
+                    y: 0.0,
+                    z: 0.0,
+                }
+            }
+
+            pub fn one() -> Vec3 {
+                Vec3 {
+                    x: 1.0,
+                    y: 1.0,
+                    z: 1.0,
+                }
+            }
+
+            pub fn unit_x() -> Vec3 {
+                Vec3 {
+                    x: 1.0,
+                    y: 0.0,
+                    z: 0.0,
+                }
+            }
+
+            pub fn unit_y() -> Vec3 {
+                Vec3 {
+                    x: 0.0,
+                    y: 1.0,
+                    z: 0.0,
+                }
+            }
+
+            pub fn unit_z() -> Vec3 {
+                Vec3 {
+                    x: 0.0,
+                    y: 0.0,
+                    z: 1.0,
+                }
+            }
+
+            pub fn magnitude_squared(&self) -> Num {
+                (self.x * self.x) + (self.y * self.y) + (self.z * self.z)
+            }
+            pub fn magnitude(&self) -> Num {
+                Num::sqrt(self.magnitude_squared())
+            }
+
+            pub fn unit_vector(&self) -> Vec3 {
+                *self / self.magnitude()
+            }
+
+            pub fn dot(&self, other: Vec3) -> Num {
+                (self.x * other.x) + (self.y * other.y) + (self.z * other.z)
+            }
+            pub fn cross(&self, other: Vec3) -> Vec3 {
+                Vec3 {
+                    x: (self.y * other.z) - (self.z * other.y),
+                    y: (self.z * other.x) - (self.x * other.z),
+                    z: (self.x * other.y) - (self.y * other.x),
+                }
             }
         }
-    }
 
-    impl Sub for Vec3 {
-        type Output = Self;
-
-        fn sub(self, other: Self) -> Self {
-            Vec3 {
-                x: self.x - other.x,
-                y: self.y - other.y,
-                z: self.z - other.z,
+        impl std::fmt::Display for Vec3 {
+            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                write!(f, "{} {} {}", self.x, self.y, self.z)
             }
         }
-    }
 
-    impl Mul for Vec3 {
-        //TODO: replace this with something more explicit?
-        type Output = Self;
+        impl Add for Vec3 {
+            type Output = Self;
 
-        fn mul(self, other: Self) -> Self {
-            Vec3 {
-                x: self.x * other.x,
-                y: self.y * other.y,
-                z: self.z * other.z,
+            fn add(self, other: Self) -> Self {
+                Vec3 {
+                    x: self.x + other.x,
+                    y: self.y + other.y,
+                    z: self.z + other.z,
+                }
             }
         }
-    }
 
-    impl Mul<Num> for Vec3 {
-        type Output = Self;
+        impl Sub for Vec3 {
+            type Output = Self;
 
-        fn mul(self, num: Num) -> Self {
-            Vec3 {
-                x: self.x * num,
-                y: self.y * num,
-                z: self.z * num,
+            fn sub(self, other: Self) -> Self {
+                Vec3 {
+                    x: self.x - other.x,
+                    y: self.y - other.y,
+                    z: self.z - other.z,
+                }
             }
         }
-    }
 
-    impl Div<Num> for Vec3 {
-        type Output = Self;
+        impl Mul for Vec3 {
+            //TODO: replace this with something more explicit?
+            type Output = Self;
 
-        fn div(self, num: Num) -> Self {
-            self * (1.0 / num)
+            fn mul(self, other: Self) -> Self {
+                Vec3 {
+                    x: self.x * other.x,
+                    y: self.y * other.y,
+                    z: self.z * other.z,
+                }
+            }
         }
-    }
 
-    impl Neg for Vec3 {
-        type Output = Vec3;
+        impl Mul<Num> for Vec3 {
+            type Output = Self;
 
-        fn neg(self) -> Self::Output {
-            Vec3 {
-                x: -self.x,
-                y: -self.y,
-                z: -self.z,
+            fn mul(self, num: Num) -> Self {
+                Vec3 {
+                    x: self.x * num,
+                    y: self.y * num,
+                    z: self.z * num,
+                }
+            }
+        }
+
+        impl Div<Num> for Vec3 {
+            type Output = Self;
+
+            fn div(self, num: Num) -> Self {
+                self * (1.0 / num)
+            }
+        }
+
+        impl Neg for Vec3 {
+            type Output = Vec3;
+
+            fn neg(self) -> Self::Output {
+                Vec3 {
+                    x: -self.x,
+                    y: -self.y,
+                    z: -self.z,
+                }
+            }
+        }
+
+        pub fn random_vec3_generator() -> impl FnMut() -> Vec3 {
+            let mut rng = rand::thread_rng();
+            move || Vec3 {
+                x: rng.gen(),
+                y: rng.gen(),
+                z: rng.gen(),
+            }
+        }
+
+        pub fn random_vec3_generator_rng(min: Num, max: Num) -> impl FnMut() -> Vec3 {
+            let mut rng = rand::thread_rng();
+            move || Vec3 {
+                x: rng.gen_range(min, max),
+                y: rng.gen_range(min, max),
+                z: rng.gen_range(min, max),
             }
         }
     }

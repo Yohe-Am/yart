@@ -1,3 +1,4 @@
+use crate::math::vec3::*;
 use crate::types::math::*;
 use crate::types::*;
 use std::rc::Rc;
@@ -16,7 +17,7 @@ fn main() {
     }));
     //rand::thread_rng().gen_range(1, 101);
     std::fs::write(
-        "hello_matte.ppm",
+        "hello_gamma.ppm",
         draw(&(Box::new(world) as Box<dyn Hit>)).as_bytes(),
     )
     .unwrap();
@@ -67,9 +68,9 @@ fn random_in_unit_sphere() -> Vec3 {
 fn write_color(output: &mut String, pixel: Color, samples_per_pixel: i32) {
     // Divide the color total by the number of samples.
     let scale = 1.0 / samples_per_pixel as f64;
-    let r = pixel.x * scale;
-    let g = pixel.y * scale;
-    let b = pixel.z * scale;
+    let r = Num::sqrt(pixel.x * scale);
+    let g = Num::sqrt(pixel.y * scale);
+    let b = Num::sqrt(pixel.z * scale);
     // Write the translated [0,255] value of each color component.
     output.push_str(
         format!(
@@ -87,7 +88,7 @@ fn send_ray(hittable: &Box<dyn Hit>, ray: Ray, depth: i32) -> Color {
         // no more light if at end of depth
         return Color::zero();
     }
-    match hittable.hit(&ray, 0.0, INFINITY) {
+    match hittable.hit(&ray, 0.001, INFINITY) {
         // if it hits the hittable, get color
         Some(record) => {
             let target = record.position + record.normal + random_in_unit_sphere();
