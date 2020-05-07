@@ -1,6 +1,40 @@
 use crate::math::*;
 use std::rc::Rc;
 
+pub struct Camera {
+    origin: Point,
+    lower_left_corner: Point,
+    horizontal: Vec3,
+    vertical: Vec3,
+}
+
+impl Camera {
+    pub fn new(origin: Point, horizontal: Vec3, vertical: Vec3) -> Camera {
+        let lower_left_corner = origin - horizontal / 2.0 - vertical / 2.0 - Vec3::unit_z(); // FIXME: negative-z
+        Camera {
+            origin,
+            horizontal,
+            vertical,
+            lower_left_corner,
+        }
+    }
+    pub fn standard() -> Camera {
+        Camera {
+            origin: Point::new(0.0, 0.0, 0.0),
+            horizontal: Vec3::new(4.0, 0.0, 0.0),
+            vertical: Vec3::new(0.0, 2.0, 0.0),
+            lower_left_corner: Point::new(-2.0, -1.0, -1.0),
+        }
+    }
+    pub fn get_ray(&self, u: Num, v: Num) -> Ray {
+        Ray {
+            origin: self.origin,
+            direction: (self.lower_left_corner + (self.horizontal * u) + (self.vertical * v))
+                - self.origin,
+        }
+    }
+}
+
 pub struct Sphere {
     pub center: Point,
     pub radius: Num,
@@ -152,6 +186,16 @@ pub mod math {
     pub const PI: f64 = std::f64::consts::PI;
     pub const INFINITY: f64 = std::f64::INFINITY;
     pub const NEG_INFINITY: f64 = std::f64::NEG_INFINITY;
+
+    pub fn clamp_num(value: Num, min: Num, max: Num) -> Num {
+        if value < min {
+            min
+        } else if value > max {
+            max
+        } else {
+            value
+        }
+    }
 
     pub fn degrees_to_radians(degrees: Num) -> Num {
         degrees * PI / 180.0
