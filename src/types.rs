@@ -152,17 +152,27 @@ pub struct Camera {
 }
 
 impl Camera {
-    pub fn new(aspect_ratio: Num, vertical_fov: Num) -> Camera {
+    pub fn new(
+        lookfrom: Point,
+        lookat: Point,
+        vup: Vec3,
+        aspect_ratio: Num,
+        vertical_fov: Num,
+    ) -> Camera {
         let theta = degrees_to_radians(vertical_fov);
         let half_height = Num::tan(theta / 2.0);
         let half_width = aspect_ratio * half_height;
 
-        let lower_left_corner = Point::new(-half_width, -half_height, -1.0);
+        let w = (lookfrom - lookat).unit_vector();
+        let u = vup.cross(w).unit_vector();
+        let v = w.cross(u);
 
-        let horizontal = Vec3::new(2.0 * half_width, 0.0, 0.0);
-        let vertical = Vec3::new(0.0, 2.0 * half_height, 0.0);
+        let lower_left_corner = lookfrom - (u * half_width) - (v * half_height) - w;
+
+        let horizontal = u * half_width * 2.0;
+        let vertical = v * half_height * 2.0;
         Camera {
-            origin: Vec3::zero(),
+            origin: lookfrom,
             horizontal,
             vertical,
             lower_left_corner,
