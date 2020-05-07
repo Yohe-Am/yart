@@ -1,5 +1,5 @@
-use core::ops::{Add, Div, Mul, Sub};
-use std::f64::EPSILON;
+use crate::math::*;
+use std::rc::Rc;
 
 pub struct Sphere {
     pub center: Point,
@@ -33,19 +33,41 @@ impl Hit for Sphere {
         let discriminant = (half_b * half_b) - (a * c);
         if discriminant > 0.0 {
             // hit sphere
-            let sol = (-half_b - Num::sqrt(discriminant)) / a;
-            if sol < t_max && sol > t_min {
-                let position = ray.at(sol);
-                let record = HitRecord {
-                    position,
-                    normal: (position - self.center) / self.radius, // unit vector
-                    t: sol,
-                };
+            let root = Num::sqrt(discriminant);
+            let mut solution = (-half_b - root) / a;
+            let mut valid: bool = solution < t_max && solution > t_min;
+            if !valid {
+                solution = (-half_b - root) / a;
+                valid = solution < t_max && solution > t_min;
+            }
+            if valid {
+                let position = ray.at(solution);
+                let outward_normal = (position - self.center) / self.radius;
+
+                let record = HitRecord::new(position, solution, ray, outward_normal);
                 return Some(record);
             }
         }
         // didn't hit sphere
         None
+    }
+}
+
+pub type HittablesList = Vec<Rc<dyn Hit>>;
+
+impl Hit for HittablesList {
+    fn hit(&self, ray: &Ray, t_min: Num, t_max: Num) -> Option<HitRecord> {
+        let mut record = None;
+        let mut closest_so_far = t_max;
+
+        for object in self {
+            let temp = object.hit(&ray, t_min, closest_so_far);
+            if let Some(r) = temp {
+                closest_so_far = r.t;
+                record = Some(r);
+            }
+        }
+        record
     }
 }
 
@@ -57,6 +79,39 @@ pub struct HitRecord {
     pub position: Point,
     pub normal: Vec3,
     pub t: Num,
+    pub front_face: bool,
+}
+
+impl HitRecord {
+    pub fn new(position: Point, t: Num, ray: &Ray, outward_normal: Vec3) -> HitRecord {
+        let front_face = ray.direction.dot(outward_normal) < 0.0;
+        let normal = if front_face {
+            outward_normal
+        } else {
+            -outward_normal
+        };
+        HitRecord {
+            position,
+            t,
+            front_face,
+            normal,
+        }
+    }
+
+    pub fn set_normal(self, ray: &Ray, outward_normal: Vec3) -> HitRecord {
+        let front_face = ray.direction.dot(outward_normal) < 0.0;
+        let normal = if front_face {
+            outward_normal
+        } else {
+            -outward_normal
+        };
+        HitRecord {
+            position: self.position,
+            t: self.t,
+            front_face,
+            normal,
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -86,155 +141,187 @@ impl Color {
     }
 }
 
-#[derive(PartialEq, Debug, Clone, Copy)]
-pub struct Vec3 {
-    pub x: Num,
-    pub y: Num,
-    pub z: Num,
-}
-
+/// Basic math types
 #[allow(dead_code)]
-impl Vec3 {
-    const EPSILON: Vec3 = Vec3 {
-        x: EPSILON,
-        y: EPSILON,
-        z: EPSILON,
-    };
+pub mod math {
+    use core::ops::{Add, Div, Mul, Neg, Sub};
 
-    pub fn new<T: Into<Num>>(x: T, y: T, z: T) -> Vec3 {
-        Vec3 {
-            x: x.into(),
-            y: y.into(),
-            z: z.into(),
+    pub type Num = f64;
+
+    pub const EPSILON: f64 = std::f64::EPSILON;
+    pub const PI: f64 = std::f64::consts::PI;
+    pub const INFINITY: f64 = std::f64::INFINITY;
+    pub const NEG_INFINITY: f64 = std::f64::NEG_INFINITY;
+
+    pub fn degrees_to_radians(degrees: Num) -> Num {
+        degrees * PI / 180.0
+    }
+
+    #[derive(PartialEq, Debug, Clone, Copy)]
+    pub struct Vec3 {
+        pub x: Num,
+        pub y: Num,
+        pub z: Num,
+    }
+
+    impl Vec3 {
+        pub const EPSILON_VEC3: Vec3 = Vec3 {
+            x: EPSILON,
+            y: EPSILON,
+            z: EPSILON,
+        };
+
+        pub fn new<T, U, V>(x: T, y: U, z: V) -> Vec3
+        where
+            T: Into<Num>,
+            U: Into<Num>,
+            V: Into<Num>,
+        {
+            Vec3 {
+                x: x.into(),
+                y: y.into(),
+                z: z.into(),
+            }
+        }
+
+        pub fn zero() -> Vec3 {
+            Vec3 {
+                x: 0.0,
+                y: 0.0,
+                z: 0.0,
+            }
+        }
+
+        pub fn one() -> Vec3 {
+            Vec3 {
+                x: 1.0,
+                y: 1.0,
+                z: 1.0,
+            }
+        }
+
+        pub fn unit_x() -> Vec3 {
+            Vec3 {
+                x: 1.0,
+                y: 0.0,
+                z: 0.0,
+            }
+        }
+
+        pub fn unit_y() -> Vec3 {
+            Vec3 {
+                x: 0.0,
+                y: 1.0,
+                z: 0.0,
+            }
+        }
+
+        pub fn unit_z() -> Vec3 {
+            Vec3 {
+                x: 0.0,
+                y: 0.0,
+                z: 1.0,
+            }
+        }
+
+        pub fn magnitude_squared(&self) -> Num {
+            (self.x * self.x) + (self.y * self.y) + (self.z * self.z)
+        }
+        pub fn magnitude(&self) -> Num {
+            Num::sqrt(self.magnitude_squared())
+        }
+
+        pub fn unit_vector(&self) -> Vec3 {
+            *self / self.magnitude()
+        }
+
+        pub fn dot(&self, other: Vec3) -> Num {
+            (self.x * other.x) + (self.y * other.y) + (self.z * other.z)
+        }
+        pub fn cross(&self, other: Vec3) -> Vec3 {
+            Vec3 {
+                x: (self.y * other.z) - (self.z * other.y),
+                y: (self.z * other.x) - (self.x * other.z),
+                z: (self.x * other.y) - (self.y * other.x),
+            }
         }
     }
 
-    pub fn zero() -> Vec3 {
-        Vec3 {
-            x: 0.0,
-            y: 0.0,
-            z: 0.0,
+    impl std::fmt::Display for Vec3 {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            write!(f, "{} {} {}", self.x, self.y, self.z)
         }
     }
 
-    pub fn one() -> Vec3 {
-        Vec3 {
-            x: 1.0,
-            y: 1.0,
-            z: 1.0,
+    impl Add for Vec3 {
+        type Output = Self;
+
+        fn add(self, other: Self) -> Self {
+            Vec3 {
+                x: self.x + other.x,
+                y: self.y + other.y,
+                z: self.z + other.z,
+            }
         }
     }
 
-    pub fn unit_x() -> Vec3 {
-        Vec3 {
-            x: 1.0,
-            y: 0.0,
-            z: 0.0,
+    impl Sub for Vec3 {
+        type Output = Self;
+
+        fn sub(self, other: Self) -> Self {
+            Vec3 {
+                x: self.x - other.x,
+                y: self.y - other.y,
+                z: self.z - other.z,
+            }
         }
     }
 
-    pub fn unit_y() -> Vec3 {
-        Vec3 {
-            x: 0.0,
-            y: 1.0,
-            z: 0.0,
+    impl Mul for Vec3 {
+        //TODO: replace this with something more explicit?
+        type Output = Self;
+
+        fn mul(self, other: Self) -> Self {
+            Vec3 {
+                x: self.x * other.x,
+                y: self.y * other.y,
+                z: self.z * other.z,
+            }
         }
     }
 
-    pub fn unit_z() -> Vec3 {
-        Vec3 {
-            x: 0.0,
-            y: 0.0,
-            z: 1.0,
+    impl Mul<Num> for Vec3 {
+        type Output = Self;
+
+        fn mul(self, num: Num) -> Self {
+            Vec3 {
+                x: self.x * num,
+                y: self.y * num,
+                z: self.z * num,
+            }
         }
     }
 
-    pub fn magnitude_squared(self) -> Num {
-        (self.x * self.x) + (self.y * self.y) + (self.z * self.z)
-    }
-    pub fn magnitude(self) -> Num {
-        Num::sqrt(self.magnitude_squared())
+    impl Div<Num> for Vec3 {
+        type Output = Self;
+
+        fn div(self, num: Num) -> Self {
+            self * (1.0 / num)
+        }
     }
 
-    pub fn unit_vector(self) -> Vec3 {
-        self / self.magnitude()
-    }
+    impl Neg for Vec3 {
+        type Output = Vec3;
 
-    pub fn dot(self, other: Vec3) -> Num {
-        (self.x * other.x) + (self.y * other.y) + (self.z * other.z)
-    }
-    pub fn cross(self, other: Vec3) -> Vec3 {
-        Vec3 {
-            x: (self.y * other.z) - (self.z * other.y),
-            y: (self.z * other.x) - (self.x * other.z),
-            z: (self.x * other.y) - (self.y * other.x),
+        fn neg(self) -> Self::Output {
+            Vec3 {
+                x: -self.x,
+                y: -self.y,
+                z: -self.z,
+            }
         }
     }
 }
-
-impl std::fmt::Display for Vec3 {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{} {} {}", self.x, self.y, self.z)
-    }
-}
-
-impl Add for Vec3 {
-    type Output = Self;
-
-    fn add(self, other: Self) -> Self {
-        Vec3 {
-            x: self.x + other.x,
-            y: self.y + other.y,
-            z: self.z + other.z,
-        }
-    }
-}
-
-impl Sub for Vec3 {
-    type Output = Self;
-
-    fn sub(self, other: Self) -> Self {
-        Vec3 {
-            x: self.x - other.x,
-            y: self.y - other.y,
-            z: self.z - other.z,
-        }
-    }
-}
-impl Mul for Vec3 {
-    //TODO: replace this with something more explicit?
-    type Output = Self;
-
-    fn mul(self, other: Self) -> Self {
-        Vec3 {
-            x: self.x * other.x,
-            y: self.y * other.y,
-            z: self.z * other.z,
-        }
-    }
-}
-
-impl Mul<Num> for Vec3 {
-    type Output = Self;
-
-    fn mul(self, num: Num) -> Self {
-        Vec3 {
-            x: self.x * num,
-            y: self.y * num,
-            z: self.z * num,
-        }
-    }
-}
-
-impl Div<Num> for Vec3 {
-    type Output = Self;
-
-    fn div(self, num: Num) -> Self {
-        self * (1.0 / num)
-    }
-}
-
-pub type Num = f64;
 
 #[cfg(test)]
 mod test_ray {
