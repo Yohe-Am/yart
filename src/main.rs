@@ -8,6 +8,7 @@ mod types;
 
 fn main() {
     let mut world = HittablesList::new();
+    /*
     world.push(Rc::new(Sphere {
         center: Vec3::new(0, -100.5, -1),
         radius: 100.0,
@@ -40,25 +41,40 @@ fn main() {
         material: Rc::new(Dielectric {
             refraction_index: 1.5,
         }),
+    })); */
+    let r = Num::cos(math::PI / 4.0);
+    world.push(Rc::new(Sphere {
+        center: Vec3::new(-r, 0, -1),
+        radius: r,
+        material: Rc::new(Lambertian {
+            albedo: Color::new(0, 0, 1),
+        }),
+    }));
+    world.push(Rc::new(Sphere {
+        center: Vec3::new(r, 0, -1),
+        radius: r,
+        material: Rc::new(Lambertian {
+            albedo: Color::new(-1, 0, 0),
+        }),
     }));
     std::fs::write(
-        "14-hello_bubble.ppm",
+        "15-hello_fov.ppm",
         draw(&(Box::new(world) as Box<dyn Hit>)).as_bytes(),
     )
     .unwrap();
 }
 
 fn draw(object: &Box<dyn Hit>) -> String {
-    let aspect_ratio = 16.0 / 9.0;
     let image_width = 384;
-    let image_height = ((image_width as Num) / aspect_ratio) as i32;
+    let image_height = ((image_width as Num) / 1.7) as i32;
     let samples_per_pixel = 100;
     let max_depth = 50;
 
     let mut ppm = String::with_capacity(990_735);
     ppm.push_str(format!("P3\n{} {}\n255\n", image_width, image_height).as_str());
 
-    let camera = Camera::standard();
+    let aspect_ratio = image_width as Num / image_height as Num;
+    let camera = Camera::new(aspect_ratio, 90.0);
 
     let mut gen = random_num_generator();
 

@@ -144,28 +144,28 @@ pub mod materials {
     }
 }
 pub struct Camera {
-    origin: Point,
-    lower_left_corner: Point,
-    horizontal: Vec3,
-    vertical: Vec3,
+    pub origin: Point,
+    pub lower_left_corner: Point,
+    pub horizontal: Vec3,
+    pub vertical: Vec3,
+    // use_ctor_please: (),
 }
 
 impl Camera {
-    pub fn new(origin: Point, horizontal: Vec3, vertical: Vec3) -> Camera {
-        let lower_left_corner = origin - horizontal / 2.0 - vertical / 2.0 - Vec3::unit_z(); // FIXME: negative-z
+    pub fn new(aspect_ratio: Num, vertical_fov: Num) -> Camera {
+        let theta = degrees_to_radians(vertical_fov);
+        let half_height = Num::tan(theta / 2.0);
+        let half_width = aspect_ratio * half_height;
+
+        let lower_left_corner = Point::new(-half_width, -half_height, -1.0);
+
+        let horizontal = Vec3::new(2.0 * half_width, 0.0, 0.0);
+        let vertical = Vec3::new(0.0, 2.0 * half_height, 0.0);
         Camera {
-            origin,
+            origin: Vec3::zero(),
             horizontal,
             vertical,
             lower_left_corner,
-        }
-    }
-    pub fn standard() -> Camera {
-        Camera {
-            origin: Point::new(0.0, 0.0, 0.0),
-            horizontal: Vec3::new(4.0, 0.0, 0.0),
-            vertical: Vec3::new(0.0, 2.0, 0.0),
-            lower_left_corner: Point::new(-2.0, -1.0, -1.0),
         }
     }
     pub fn get_ray(&self, u: Num, v: Num) -> Ray {
