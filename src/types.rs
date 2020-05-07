@@ -30,9 +30,13 @@ pub mod materials {
             let next_direction = if etai_over_etat * sin_theta > 1.0 {
                 reflect(unit_direction, record.normal)
             } else {
-                refract(unit_direction, record.normal, etai_over_etat)
+                let reflect_prob = schlick(cos_theta, etai_over_etat);
+                if rand::random::<f64>() < reflect_prob {
+                    reflect(unit_direction, record.normal)
+                } else {
+                    refract(unit_direction, record.normal, etai_over_etat)
+                }
             };
-
             Some((
                 Ray {
                     origin: record.position,
@@ -41,6 +45,11 @@ pub mod materials {
                 Color::one(),
             ))
         }
+    }
+    fn schlick(cosine: Num, ref_idx: Num) -> Num {
+        let r0 = (1.0 - ref_idx) / (1.0 + ref_idx);
+        let r0 = r0 * r0;
+        return r0 + (1.0 - r0) * Num::powi(1.0 - cosine, 5);
     }
 
     fn refract(uv: Vec3, normal: Vec3, etai_over_etat: Num) -> Vec3 {

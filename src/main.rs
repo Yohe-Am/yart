@@ -23,6 +23,11 @@ fn main() {
         }),
     }));
     world.push(Rc::new(Sphere {
+        center: Vec3::new(-1, 0, -1),
+        radius: 0.5,
+        material: Rc::new(Metal::new(Color::new(0.8, 0.8, 0.8), 0.3)),
+    }));
+    world.push(Rc::new(Sphere {
         center: Vec3::new(1, 0, -1),
         radius: 0.5,
         material: Rc::new(Dielectric {
@@ -30,13 +35,14 @@ fn main() {
         }),
     }));
     world.push(Rc::new(Sphere {
-        center: Vec3::new(-1, 0, -1),
-        radius: 0.5,
-        material: Rc::new(Metal::new(Color::new(0.8, 0.8, 0.8), 0.0)),
+        center: Vec3::new(1, 0, -1),
+        radius: -0.45,
+        material: Rc::new(Dielectric {
+            refraction_index: 1.5,
+        }),
     }));
-    //rand::thread_rng().gen_range(1, 101);
     std::fs::write(
-        "13-hello_dielectric.ppm",
+        "14-hello_bubble.ppm",
         draw(&(Box::new(world) as Box<dyn Hit>)).as_bytes(),
     )
     .unwrap();
