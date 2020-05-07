@@ -2,6 +2,61 @@ use crate::math::vec3::*;
 use crate::math::*;
 use std::rc::Rc;
 
+pub struct Metal {
+    pub albedo: Color,
+}
+
+impl Material for Metal {
+    fn scatter(&self, r_in: Ray, record: HitRecord) -> Option<(Ray, Color)> {
+        let reflected = reflect(r_in.direction.unit_vector(), record.normal);
+        if reflected.dot(record.normal) > 0.0 {
+            Some((
+                Ray {
+                    origin: record.position,
+                    direction: reflected,
+                },
+                self.albedo,
+            ))
+        } else {
+            None
+        }
+    }
+}
+fn reflect(vec: Vec3, normal: Vec3) -> Vec3 {
+    let b = normal * vec.dot(normal);
+    vec - (b * 2.0)
+}
+
+pub struct Lambertian {
+    pub albedo: Color,
+}
+
+impl Material for Lambertian {
+    fn scatter(&self, _: Ray, record: HitRecord) -> Option<(Ray, Color)> {
+        let scatter_direction = record.normal + random_unit_vector();
+        Some((
+            Ray {
+                origin: record.position,
+                direction: scatter_direction,
+            },
+            self.albedo,
+        ))
+    }
+}
+
+// for lambertian diffuse
+fn random_unit_vector() -> Vec3 {
+    let mut gen = random_num_generator_rng();
+    let a = gen(0.0, 2.0 * math::PI);
+    let z = gen(-1.0, 1.0);
+    let r = Num::sqrt(1.0 - z * z);
+    return Vec3::new(r * Num::cos(a), r * Num::sin(a), z);
+}
+
+pub trait Material {
+    fn scatter(&self, ray_in: Ray, record: HitRecord) -> Option<(Ray, Color)>;
+}
+
 pub struct Camera {
     origin: Point,
     lower_left_corner: Point,
@@ -39,6 +94,7 @@ impl Camera {
 pub struct Sphere {
     pub center: Point,
     pub radius: Num,
+    pub material: Rc<dyn Material>,
 }
 
 impl Hit for Sphere {
@@ -79,7 +135,13 @@ impl Hit for Sphere {
                 let position = ray.at(solution);
                 let outward_normal = (position - self.center) / self.radius;
 
-                let record = HitRecord::new(position, solution, ray, outward_normal);
+                let record = HitRecord::new(
+                    position,
+                    solution,
+                    ray,
+                    outward_normal,
+                    self.material.clone(),
+                );
                 return Some(record);
             }
         }
@@ -115,10 +177,17 @@ pub struct HitRecord {
     pub normal: Vec3,
     pub t: Num,
     pub front_face: bool,
+    pub material: Rc<dyn Material>,
 }
 
 impl HitRecord {
-    pub fn new(position: Point, t: Num, ray: &Ray, outward_normal: Vec3) -> HitRecord {
+    pub fn new(
+        position: Point,
+        t: Num,
+        ray: &Ray,
+        outward_normal: Vec3,
+        material: Rc<dyn Material>,
+    ) -> HitRecord {
         let front_face = ray.direction.dot(outward_normal) < 0.0;
         let normal = if front_face {
             outward_normal
@@ -130,6 +199,7 @@ impl HitRecord {
             t,
             front_face,
             normal,
+            material,
         }
     }
 
@@ -145,6 +215,7 @@ impl HitRecord {
             t: self.t,
             front_face,
             normal,
+            material: self.material,
         }
     }
 }
@@ -208,9 +279,9 @@ pub mod math {
         move || rng.gen()
     }
 
-    pub fn random_num_generator_rng(min: Num, max: Num) -> impl FnMut() -> Num {
+    pub fn random_num_generator_rng() -> impl FnMut(Num, Num) -> Num {
         let mut rng = rand::thread_rng();
-        move || rng.gen_range(min, max)
+        move |min, max| rng.gen_range(min, max)
     }
     pub mod vec3 {
         use super::*;
@@ -389,9 +460,9 @@ pub mod math {
             }
         }
 
-        pub fn random_vec3_generator_rng(min: Num, max: Num) -> impl FnMut() -> Vec3 {
+        pub fn random_vec3_generator_rng() -> impl FnMut(Num, Num) -> Vec3 {
             let mut rng = rand::thread_rng();
-            move || Vec3 {
+            move |min, max| Vec3 {
                 x: rng.gen_range(min, max),
                 y: rng.gen_range(min, max),
                 z: rng.gen_range(min, max),

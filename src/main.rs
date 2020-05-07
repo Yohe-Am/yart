@@ -10,14 +10,34 @@ fn main() {
     world.push(Rc::new(Sphere {
         center: Vec3::new(0, 0, -1),
         radius: 0.5,
+        material: Rc::new(Lambertian {
+            albedo: Color::new(0.7, 0.3, 0.3),
+        }),
     }));
     world.push(Rc::new(Sphere {
         center: Vec3::new(0, -100.5, -1),
         radius: 100.0,
+        material: Rc::new(Lambertian {
+            albedo: Color::new(0.8, 0.8, 0.0),
+        }),
+    }));
+    world.push(Rc::new(Sphere {
+        center: Vec3::new(1, 0, -1),
+        radius: 0.5,
+        material: Rc::new(Metal {
+            albedo: Color::new(0.8, 0.6, 0.2),
+        }),
+    }));
+    world.push(Rc::new(Sphere {
+        center: Vec3::new(-1, 0, -1),
+        radius: 0.5,
+        material: Rc::new(Metal {
+            albedo: Color::new(0.8, 0.8, 0.8),
+        }),
     }));
     //rand::thread_rng().gen_range(1, 101);
     std::fs::write(
-        "hello_gamma.ppm",
+        "12-hello_metal.ppm",
         draw(&(Box::new(world) as Box<dyn Hit>)).as_bytes(),
     )
     .unwrap();
@@ -55,16 +75,6 @@ fn draw(object: &Box<dyn Hit>) -> String {
     println!("Done");
     ppm
 }
-fn random_in_unit_sphere() -> Vec3 {
-    let mut gen = random_vec3_generator_rng(-1.0, 1.0);
-    loop {
-        let vec = gen();
-        if vec.magnitude_squared() < 1.0 {
-            return vec;
-        }
-    }
-}
-
 fn write_color(output: &mut String, pixel: Color, samples_per_pixel: i32) {
     // Divide the color total by the number of samples.
     let scale = 1.0 / samples_per_pixel as f64;
@@ -88,16 +98,15 @@ fn send_ray(hittable: &Box<dyn Hit>, ray: Ray, depth: i32) -> Color {
         // no more light if at end of depth
         return Color::zero();
     }
+    // TODO: check out shaodw acne
     match hittable.hit(&ray, 0.001, INFINITY) {
         // if it hits the hittable, get color
-        Some(record) => {
-            let target = record.position + record.normal + random_in_unit_sphere();
-            let deflected_ray = Ray {
-                origin: record.position,
-                direction: target - record.position,
-            };
-            send_ray(hittable, deflected_ray, depth - 1) * 0.5
-        }
+        Some(record) => match record.material.clone().scatter(ray, record) {
+            Some((deflected_ray, attenuation)) => {
+                attenuation * send_ray(hittable, deflected_ray, depth - 1)
+            }
+            None => Color::zero(),
+        },
         // else, the background gradient
         None => {
             let unit_direction = ray.direction.unit_vector();
@@ -106,5 +115,25 @@ fn send_ray(hittable: &Box<dyn Hit>, ray: Ray, depth: i32) -> Color {
             (Color::one() * (1.0 - t)) + (Color::new(0.5, 0.7, 1.0) * t)
             //^ white                     ^ blue
         }
+    }
+}
+
+fn random_in_unit_sphere() -> Vec3 {
+    let mut gen = random_vec3_generator_rng();
+    loop {
+        let vec = gen(-1.0, 1.0);
+        if vec.magnitude_squared() < 1.0 {
+            return vec;
+        }
+    }
+}
+
+fn random_in_hemisphere(normal: Vec3) -> Vec3 {
+    let in_unit_sphere = random_in_unit_sphere();
+    if in_unit_sphere.dot(normal) > 0.0 {
+        // In the same hemisphere as the normal
+        in_unit_sphere
+    } else {
+        -in_unit_sphere
     }
 }
