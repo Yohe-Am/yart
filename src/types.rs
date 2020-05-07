@@ -1,62 +1,98 @@
+use crate::materials::*;
 use crate::math::vec3::*;
 use crate::math::*;
 use std::rc::Rc;
 
-pub struct Metal {
-    pub albedo: Color,
-}
+pub mod materials {
+    use super::*;
+    pub trait Material {
+        fn scatter(&self, ray_in: Ray, record: HitRecord) -> Option<(Ray, Color)>;
+    }
 
-impl Material for Metal {
-    fn scatter(&self, r_in: Ray, record: HitRecord) -> Option<(Ray, Color)> {
-        let reflected = reflect(r_in.direction.unit_vector(), record.normal);
-        if reflected.dot(record.normal) > 0.0 {
+    pub struct Metal {
+        pub albedo: Color,
+        fuzz: Num,
+    }
+
+    impl Metal {
+        pub fn fuzz(&self) -> Num {
+            self.fuzz
+        }
+        pub fn new(albedo: Color, fuzz: Num) -> Metal {
+            Metal {
+                albedo,
+                fuzz: if fuzz < 1.0 { fuzz } else { 1.0 },
+            }
+        }
+    }
+
+    impl Material for Metal {
+        fn scatter(&self, r_in: Ray, record: HitRecord) -> Option<(Ray, Color)> {
+            let reflected = reflect(r_in.direction.unit_vector(), record.normal);
+            if reflected.dot(record.normal) > 0.0 {
+                Some((
+                    Ray {
+                        origin: record.position,
+                        direction: reflected + (random_in_unit_sphere() * self.fuzz),
+                    },
+                    self.albedo,
+                ))
+            } else {
+                None
+            }
+        }
+    }
+    fn reflect(vec: Vec3, normal: Vec3) -> Vec3 {
+        let b = normal * vec.dot(normal);
+        vec - (b * 2.0)
+    }
+
+    pub struct Lambertian {
+        pub albedo: Color,
+    }
+
+    impl Material for Lambertian {
+        fn scatter(&self, _: Ray, record: HitRecord) -> Option<(Ray, Color)> {
+            let scatter_direction = record.normal + random_unit_vector();
             Some((
                 Ray {
                     origin: record.position,
-                    direction: reflected,
+                    direction: scatter_direction,
                 },
                 self.albedo,
             ))
+        }
+    }
+
+    // for lambertian diffuse
+    fn random_unit_vector() -> Vec3 {
+        let mut gen = random_num_generator_rng();
+        let a = gen(0.0, 2.0 * math::PI);
+        let z = gen(-1.0, 1.0);
+        let r = Num::sqrt(1.0 - z * z);
+        return Vec3::new(r * Num::cos(a), r * Num::sin(a), z);
+    }
+
+    fn random_in_unit_sphere() -> Vec3 {
+        let mut gen = random_vec3_generator_rng();
+        loop {
+            let vec = gen(-1.0, 1.0);
+            if vec.magnitude_squared() < 1.0 {
+                return vec;
+            }
+        }
+    }
+
+    fn random_in_hemisphere(normal: Vec3) -> Vec3 {
+        let in_unit_sphere = random_in_unit_sphere();
+        if in_unit_sphere.dot(normal) > 0.0 {
+            // In the same hemisphere as the normal
+            in_unit_sphere
         } else {
-            None
+            -in_unit_sphere
         }
     }
 }
-fn reflect(vec: Vec3, normal: Vec3) -> Vec3 {
-    let b = normal * vec.dot(normal);
-    vec - (b * 2.0)
-}
-
-pub struct Lambertian {
-    pub albedo: Color,
-}
-
-impl Material for Lambertian {
-    fn scatter(&self, _: Ray, record: HitRecord) -> Option<(Ray, Color)> {
-        let scatter_direction = record.normal + random_unit_vector();
-        Some((
-            Ray {
-                origin: record.position,
-                direction: scatter_direction,
-            },
-            self.albedo,
-        ))
-    }
-}
-
-// for lambertian diffuse
-fn random_unit_vector() -> Vec3 {
-    let mut gen = random_num_generator_rng();
-    let a = gen(0.0, 2.0 * math::PI);
-    let z = gen(-1.0, 1.0);
-    let r = Num::sqrt(1.0 - z * z);
-    return Vec3::new(r * Num::cos(a), r * Num::sin(a), z);
-}
-
-pub trait Material {
-    fn scatter(&self, ray_in: Ray, record: HitRecord) -> Option<(Ray, Color)>;
-}
-
 pub struct Camera {
     origin: Point,
     lower_left_corner: Point,

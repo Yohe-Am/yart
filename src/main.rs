@@ -1,4 +1,5 @@
 use crate::math::vec3::*;
+use crate::types::materials::*;
 use crate::types::math::*;
 use crate::types::*;
 use std::rc::Rc;
@@ -24,20 +25,16 @@ fn main() {
     world.push(Rc::new(Sphere {
         center: Vec3::new(1, 0, -1),
         radius: 0.5,
-        material: Rc::new(Metal {
-            albedo: Color::new(0.8, 0.6, 0.2),
-        }),
+        material: Rc::new(Metal::new(Color::new(0.8, 0.6, 0.2), 0.1)),
     }));
     world.push(Rc::new(Sphere {
         center: Vec3::new(-1, 0, -1),
         radius: 0.5,
-        material: Rc::new(Metal {
-            albedo: Color::new(0.8, 0.8, 0.8),
-        }),
+        material: Rc::new(Metal::new(Color::new(0.8, 0.8, 0.8), 1.0)),
     }));
     //rand::thread_rng().gen_range(1, 101);
     std::fs::write(
-        "12-hello_metal.ppm",
+        "13-hello_fuzz.ppm",
         draw(&(Box::new(world) as Box<dyn Hit>)).as_bytes(),
     )
     .unwrap();
@@ -115,25 +112,5 @@ fn send_ray(hittable: &Box<dyn Hit>, ray: Ray, depth: i32) -> Color {
             (Color::one() * (1.0 - t)) + (Color::new(0.5, 0.7, 1.0) * t)
             //^ white                     ^ blue
         }
-    }
-}
-
-fn random_in_unit_sphere() -> Vec3 {
-    let mut gen = random_vec3_generator_rng();
-    loop {
-        let vec = gen(-1.0, 1.0);
-        if vec.magnitude_squared() < 1.0 {
-            return vec;
-        }
-    }
-}
-
-fn random_in_hemisphere(normal: Vec3) -> Vec3 {
-    let in_unit_sphere = random_in_unit_sphere();
-    if in_unit_sphere.dot(normal) > 0.0 {
-        // In the same hemisphere as the normal
-        in_unit_sphere
-    } else {
-        -in_unit_sphere
     }
 }
