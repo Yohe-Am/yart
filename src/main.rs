@@ -7,49 +7,16 @@ use std::rc::Rc;
 mod types;
 
 fn main() {
-    let mut world = HittablesList::new();
-    world.push(Rc::new(Sphere {
-        center: Vec3::new(0, -100.5, -1),
-        radius: 100.0,
-        material: Rc::new(Lambertian {
-            albedo: Color::new(0.8, 0.8, 0.0),
-        }),
-    }));
-    world.push(Rc::new(Sphere {
-        center: Vec3::new(0, 0, -1),
-        radius: 0.5,
-        material: Rc::new(Lambertian {
-            albedo: Color::new(0.1, 0.2, 0.5),
-        }),
-    }));
-    world.push(Rc::new(Sphere {
-        center: Vec3::new(-1, 0, -1),
-        radius: 0.5,
-        material: Rc::new(Metal::new(Color::new(0.8, 0.8, 0.8), 0.3)),
-    }));
-    world.push(Rc::new(Sphere {
-        center: Vec3::new(1, 0, -1),
-        radius: 0.5,
-        material: Rc::new(Dielectric {
-            refraction_index: 1.5,
-        }),
-    }));
-    world.push(Rc::new(Sphere {
-        center: Vec3::new(1, 0, -1),
-        radius: -0.45,
-        material: Rc::new(Dielectric {
-            refraction_index: 1.5,
-        }),
-    }));
+    let world = random_scene();
     std::fs::write(
-        "17-hello_dof.ppm",
+        "19-hello_sayonara-hi-res.ppm",
         draw(&(Box::new(world) as Box<dyn Hit>)).as_bytes(),
     )
     .unwrap();
 }
 
 fn draw(object: &Box<dyn Hit>) -> String {
-    let image_width = 384;
+    let image_width = 1200;
     let image_height = ((image_width as Num) / 1.7) as usize;
     let samples_per_pixel = 100;
     let max_depth = 50;
@@ -57,11 +24,11 @@ fn draw(object: &Box<dyn Hit>) -> String {
     let mut ppm = String::with_capacity(image_width * image_height * 12 + 20);
     ppm.push_str(format!("P3\n{} {}\n255\n", image_width, image_height).as_str());
 
-    let look_from = Point::new(3, 3, 2);
-    let look_at = Point::new(0, 0, -1);
+    let look_from = Point::new(13, 2, 3);
+    let look_at = Point::new(0, 0, 0);
     let vup = Vec3::unit_y();
-    let dist_to_focus = (look_from - look_at).magnitude();
-    let aperture = 2.0;
+    let dist_to_focus = 10.0; // (look_from - look_at).magnitude();
+    let aperture = 0.1;
     let aspect_ratio = image_width as Num / image_height as Num;
     let camera = Camera::new(
         look_from,
@@ -75,6 +42,8 @@ fn draw(object: &Box<dyn Hit>) -> String {
 
     let mut gen = random_num_generator();
 
+    let mut ppm = PPM::new(image_width, image_width);
+
     for h in (0..(image_height - 1)).rev() {
         print!("\rScanlines remaining: {}\n", h);
         for w in 0..image_width {
@@ -84,31 +53,53 @@ fn draw(object: &Box<dyn Hit>) -> String {
                 let v = ((h as Num) + gen()) / (image_height - 1) as Num;
                 pixel = pixel + send_ray(object, camera.get_ray(u, v), max_depth);
             }
-            write_color(&mut ppm, pixel, samples_per_pixel);
+            ppm.set_pixel(h, w, pixel);
 
             // println!("h: {:?} - w: {:?} - u: {:?} - v: {:?}", h, w, u, v);
         }
     }
 
     println!("Done");
-    ppm
+    ppm.print(samples_per_pixel)
 }
-fn write_color(output: &mut String, pixel: Color, samples_per_pixel: i32) {
-    // Divide the color total by the number of samples.
-    let scale = 1.0 / samples_per_pixel as f64;
-    let r = Num::sqrt(pixel.x * scale);
-    let g = Num::sqrt(pixel.y * scale);
-    let b = Num::sqrt(pixel.z * scale);
-    // Write the translated [0,255] value of each color component.
-    output.push_str(
-        format!(
-            "{} {} {}\n",
-            (256.0 * math::clamp_num(r, 0.0, 0.999)) as i32,
-            (256.0 * math::clamp_num(g, 0.0, 0.999)) as i32,
-            (256.0 * math::clamp_num(b, 0.0, 0.999)) as i32,
-        )
-        .as_str(),
-    );
+
+struct PPM {
+    width: usize,
+    height: usize,
+    pixels: Vec<Color>,
+}
+impl PPM {
+    fn new(width: usize, height: usize) -> PPM {
+        PPM {
+            width,
+            height,
+            pixels: Vec::with_capacity(width * height),
+        }
+    }
+    fn set_pixel(&mut self, x: usize, y: usize, color: Color) {
+        self.pixels[x * y] = color;
+    }
+    fn print(self, samples_per_pixel: usize) -> String {
+        use std::fmt::Write;
+        let mut output = String::new();
+        write!(output, "P3\n{} {}\n255\n", self.width, self.height).unwrap();
+        output.reserve(self.width * self.height * 12);
+        for pixel in self.pixels {
+            let scale = 1.0 / samples_per_pixel as f64;
+            let r = Num::sqrt(pixel.x * scale);
+            let g = Num::sqrt(pixel.y * scale);
+            let b = Num::sqrt(pixel.z * scale);
+            // Write the translated [0,255] value of each color component.
+            write!(
+                output,
+                "{} {} {}\n",
+                (256.0 * math::clamp_num(r, 0.0, 0.999)) as i32,
+                (256.0 * math::clamp_num(g, 0.0, 0.999)) as i32,
+                (256.0 * math::clamp_num(b, 0.0, 0.999)) as i32,
+            ).unwrap();
+        }
+        output
+    }
 }
 
 fn send_ray(hittable: &Box<dyn Hit>, ray: Ray, depth: i32) -> Color {
@@ -134,4 +125,88 @@ fn send_ray(hittable: &Box<dyn Hit>, ray: Ray, depth: i32) -> Color {
             //^ white                     ^ blue
         }
     }
+}
+
+fn random_scene() -> HittablesList {
+    let mut world = HittablesList::new();
+    world.push(Rc::new(Sphere {
+        center: Vec3::new(0, -1000, 0),
+        radius: 1000.0,
+        material: Rc::new(Lambertian {
+            albedo: Color::new(0.5, 0.5, 0.5),
+        }),
+    }));
+
+    let mut gen = random_num_generator();
+    let mut gen_range = random_num_generator_rng();
+    let mut gen_vec = random_vec3_generator();
+    let mut gen_vec_range = random_vec3_generator_rng();
+
+    // let i = 1i32;
+    for a in -11..11 {
+        for b in -11..11 {
+            let choose_mat = gen();
+            let center = Point::new(a as Num + gen() * 0.9, 0.2, b as Num + 0.9 * gen());
+            if (center - Vec3::new(4, 0.2, 0)).magnitude() > 0.9 {
+                if choose_mat < 0.8 {
+                    // diffuse
+                    let albedo: Color = gen_vec() * gen_vec();
+
+                    world.push(Rc::new(Sphere {
+                        center,
+                        radius: 0.2,
+                        material: Rc::new(Lambertian { albedo }),
+                    }));
+                } else if choose_mat < 0.95 {
+                    // metal
+                    let albedo = gen_vec_range(0.5, 1.0);
+                    let fuzz = gen_range(0.0, 0.5);
+                    world.push(Rc::new(Sphere {
+                        center,
+                        radius: 0.2,
+                        material: Rc::new(Metal::new(albedo, fuzz)),
+                    }));
+                } else {
+                    // glass
+
+                    world.push(Rc::new(Sphere {
+                        center,
+                        radius: 0.2,
+                        material: Rc::new(Dielectric {
+                            refraction_index: 1.5,
+                        }),
+                    }));
+                }
+            }
+        }
+    }
+
+    world.push(Rc::new(Sphere {
+        center: Vec3::new(-4, 1, 0),
+        radius: 1.0,
+        material: Rc::new(Lambertian {
+            albedo: Color::new(0.4, 0.2, 0.1),
+        }),
+    }));
+    world.push(Rc::new(Sphere {
+        center: Vec3::new(4, 1, 0),
+        radius: 1.0,
+        material: Rc::new(Metal::new(Color::new(0.7, 0.6, 0.5), 0.0)),
+    }));
+    // world.push(Rc::new(Sphere {
+    //     center: Vec3::new(1, 0, -1),
+    //     radius: 0.5,
+    //     material: Rc::new(Dielectric {
+    //         refraction_index: 1.5,
+    //     }),
+    // }));
+    world.push(Rc::new(Sphere {
+        center: Vec3::new(0, 1, 0),
+        radius: 1.0,
+        material: Rc::new(Dielectric {
+            refraction_index: 1.5,
+        }),
+    }));
+
+    world
 }
