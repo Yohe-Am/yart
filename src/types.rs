@@ -1,7 +1,7 @@
 use crate::materials::*;
 use crate::math::vec3::*;
 use crate::math::*;
-use std::rc::Rc;
+use std::sync::Arc;
 
 pub mod materials {
     use super::*;
@@ -31,7 +31,7 @@ pub mod materials {
                 reflect(unit_direction, record.normal)
             } else {
                 let reflect_prob = schlick(cos_theta, etai_over_etat);
-                if rand::random::<f64>() < reflect_prob {
+                if random_num() < reflect_prob {
                     reflect(unit_direction, record.normal)
                 } else {
                     refract(unit_direction, record.normal, etai_over_etat)
@@ -116,17 +116,17 @@ pub mod materials {
 
     // for lambertian diffuse
     fn random_unit_vector() -> Vec3 {
-        let mut gen = random_num_generator_rng();
-        let a = gen(0.0, 2.0 * math::PI);
-        let z = gen(-1.0, 1.0);
+        let mut rng = random_num_generator_rng();
+        let a = rng(0.0, 2.0 * math::PI);
+        let z = rng(-1.0, 1.0);
         let r = Num::sqrt(1.0 - z * z);
         return Vec3::new(r * Num::cos(a), r * Num::sin(a), z);
     }
 
     fn random_in_unit_sphere() -> Vec3 {
-        let mut gen = random_vec3_generator_rng();
+        let mut rng = random_vec3_generator_range();
         loop {
-            let vec = gen(-1.0, 1.0);
+            let vec = rng(-1.0, 1.0);
             if vec.magnitude_squared() < 1.0 {
                 return vec;
             }
@@ -143,6 +143,8 @@ pub mod materials {
         }
     }
 }
+
+// #[derive(Clone, Copy)]
 pub struct Camera {
     pub origin: Point,
     pub lower_left_corner: Point,
@@ -204,10 +206,11 @@ impl Camera {
         }
     }
 }
+
 fn random_in_unit_disk() -> Vec3 {
-    let mut gen = random_num_generator_rng();
+    let mut rng = random_num_generator_rng();
     loop {
-        let p = Vec3::new(gen(-1.0, 1.0), gen(-1.0, 1.0), 0);
+        let p = Vec3::new(rng(-1.0, 1.0), rng(-1.0, 1.0), 0);
         if p.magnitude_squared() < 1.0 {
             return p;
         }
@@ -216,7 +219,7 @@ fn random_in_unit_disk() -> Vec3 {
 pub struct Sphere {
     pub center: Point,
     pub radius: Num,
-    pub material: Rc<dyn Material>,
+    pub material: Arc<dyn Material + Send + Sync>,
 }
 
 impl Hit for Sphere {
@@ -272,7 +275,7 @@ impl Hit for Sphere {
     }
 }
 
-pub type HittablesList = Vec<Rc<dyn Hit>>;
+pub type HittablesList = Vec<Arc<dyn Hit + Send + Sync>>;
 
 impl Hit for HittablesList {
     fn hit(&self, ray: &Ray, t_min: Num, t_max: Num) -> Option<HitRecord> {
@@ -299,7 +302,7 @@ pub struct HitRecord {
     pub normal: Vec3,
     pub t: Num,
     pub front_face: bool,
-    pub material: Rc<dyn Material>,
+    pub material: Arc<dyn Material>,
 }
 
 impl HitRecord {
@@ -308,7 +311,7 @@ impl HitRecord {
         t: Num,
         ray: &Ray,
         outward_normal: Vec3,
-        material: Rc<dyn Material>,
+        material: Arc<dyn Material>,
     ) -> HitRecord {
         let front_face = ray.direction.dot(outward_normal) < 0.0;
         let normal = if front_face {
@@ -395,7 +398,22 @@ pub mod math {
     pub fn degrees_to_radians(degrees: Num) -> Num {
         degrees * PI / 180.0
     }
+    use rand::rngs::ThreadRng;
 
+    pub fn get_rand_generator() -> rand::rngs::ThreadRng {
+        static mut OPTION: Option<ThreadRng> = None;
+        // option
+        unsafe {
+            match OPTION {
+                Some(rng) => rng,
+                None => {
+                    let rng = rand::thread_rng();
+                    OPTION = Some(rng);
+                    rng
+                }
+            }
+        }
+    }
     pub fn random_num_generator() -> impl FnMut() -> Num {
         let mut rng = rand::thread_rng();
         move || rng.gen()
@@ -404,6 +422,14 @@ pub mod math {
     pub fn random_num_generator_rng() -> impl FnMut(Num, Num) -> Num {
         let mut rng = rand::thread_rng();
         move |min, max| rng.gen_range(min, max)
+    }
+
+    pub fn random_num() -> Num {
+        get_rand_generator().gen()
+    }
+
+    pub fn random_num_rng(min: Num, max: Num) -> Num {
+        get_rand_generator().gen_range(min, max)
     }
     pub mod vec3 {
         use super::*;
@@ -582,12 +608,28 @@ pub mod math {
             }
         }
 
-        pub fn random_vec3_generator_rng() -> impl FnMut(Num, Num) -> Vec3 {
+        pub fn random_vec3_generator_range() -> impl FnMut(Num, Num) -> Vec3 {
             let mut rng = rand::thread_rng();
             move |min, max| Vec3 {
                 x: rng.gen_range(min, max),
                 y: rng.gen_range(min, max),
                 z: rng.gen_range(min, max),
+            }
+        }
+
+        pub fn random_vec3() -> Vec3 {
+            Vec3 {
+                x: get_rand_generator().gen(),
+                y: get_rand_generator().gen(),
+                z: get_rand_generator().gen(),
+            }
+        }
+
+        pub fn random_vec3_rng(min: Num, max: Num) -> Vec3 {
+            Vec3 {
+                x: get_rand_generator().gen_range(min, max),
+                y: get_rand_generator().gen_range(min, max),
+                z: get_rand_generator().gen_range(min, max),
             }
         }
     }
