@@ -1,11 +1,13 @@
+use crate::materials::*;
 use crate::math::vec3::*;
-use crate::types::materials::*;
-use crate::types::math::*;
+use crate::math::*;
 use crate::types::*;
 use std::sync::mpsc;
 use std::sync::Arc;
 
-mod types;
+pub mod materials;
+pub mod math;
+pub mod types;
 
 mod threads;
 
@@ -13,10 +15,10 @@ fn main() {
     let world = random_scene();
     let world = Arc::new(world); // as Arc<dyn Hit + Send + Sync>;
                                  // let ref world = make_threadsafe_hittable(Box::new(random_scene()));
-    std::fs::write("20-hello_threads.ppm", draw(world).as_bytes()).unwrap();
+    std::fs::write("21-hello_hello.ppm", draw(world).as_bytes()).unwrap();
 }
 
-fn draw(object_ptr: Arc<dyn Hit + Send + Sync>) -> String {
+fn draw(object_ptr: HittablePtr) -> String {
     let image_width = 1366;
     let image_height = (((image_width as Num) * 9.0) / 16.0) as usize;
     let samples_per_pixel = 100;
@@ -24,7 +26,7 @@ fn draw(object_ptr: Arc<dyn Hit + Send + Sync>) -> String {
     let thread_count = 4;
 
     let camera_ptr = {
-        let look_from = Point::new(13, 2, 3);
+        let look_from = Point::new(4, 2, 3);
         let look_at = Point::new(0, 0, 0);
         let vup = Vec3::unit_y();
         let dist_to_focus = 10.0; // (look_from - look_at).magnitude();
@@ -36,7 +38,7 @@ fn draw(object_ptr: Arc<dyn Hit + Send + Sync>) -> String {
             look_at,
             vup,
             aspect_ratio,
-            20.0,
+            90.0,
             aperture,
             dist_to_focus,
         );
@@ -85,7 +87,7 @@ fn draw(object_ptr: Arc<dyn Hit + Send + Sync>) -> String {
     ppm.print(samples_per_pixel)
 }
 
-fn send_ray(hittable: Arc<dyn Hit>, ray: Ray, depth: i32) -> Color {
+fn send_ray(hittable: HittablePtr, ray: Ray, depth: i32) -> Color {
     if depth <= 0 {
         // no more light if at end of depth
         return Color::zero();
@@ -213,7 +215,7 @@ impl fmt::Debug for PPM {
 impl PPM {
     fn new(width: usize, height: usize) -> PPM {
         let mut pixels = Vec::with_capacity(height);
-        for _ in 0..(height-1) {
+        for _ in 0..(height - 1) {
             pixels.push(Vec::with_capacity(width));
         }
         PPM {
@@ -222,7 +224,7 @@ impl PPM {
             pixels,
         }
     }
-    fn set_pixel(&mut self, w: usize, h: usize, color: Color) {
+    fn set_pixel(&mut self, _w: usize, h: usize, color: Color) {
         self.pixels[h].push(color);
     }
     fn print(self, samples_per_pixel: usize) -> String {
